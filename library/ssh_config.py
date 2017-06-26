@@ -21,6 +21,13 @@ options:
         If none given /etc/ssh/ssh_config. If a user is given then
         `~/.ssh/config`.
     default: root
+    required: false
+    choices: []
+  group:
+    description:
+      - Which group this configuration file belongs to.
+        If none group name = user name
+    default: []
     choices: []
   host:
     description:
@@ -70,6 +77,7 @@ EXAMPLES = '''
     state=present
 - config:
     user=deploy
+    group=employees
     host=old-internal.github.com
     remote_user=git
     state=absent
@@ -703,6 +711,7 @@ def main():
             remote_user=dict(type='str'),
             identity_file=dict(type='str'),
             user=dict(default=None, type='str'),
+            group=dict(default=None, type='str'),
             user_known_hosts_file=dict(default=None, type='str'),
             proxycommand=dict(default=None, type='str'),
             strict_host_key_checking=dict(
@@ -714,6 +723,7 @@ def main():
     )
 
     user = module.params.get('user')
+    group = module.params.get('group')
     host = module.params.get('host')
     args = dict(
         hostname=module.params.get('hostname'),
@@ -730,9 +740,13 @@ def main():
     hosts_removed = []
     hosts_added = []
 
+    if group is None:
+        group = user
+
     if user is None:
         config_file = '/etc/ssh/ssh_config'
         user = 'root'
+        group = 'root'
     else:
         config_file = os.path.join(
             os.path.expanduser('~{0}'.format(user)), '.ssh', 'config'
@@ -789,7 +803,7 @@ def main():
         config.write_to_ssh_config()
         # MAKE sure the file is owned by the right user
         module.set_owner_if_different(config_file, user, False)
-        module.set_group_if_different(config_file, user, False)
+        module.set_group_if_different(config_file, group, False)
         module.set_mode_if_different(config_file, '0600', False)
 
     module.exit_json(changed=config_changed,
